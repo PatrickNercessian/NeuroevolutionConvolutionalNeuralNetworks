@@ -16,6 +16,7 @@ def build_fn(model_struct):
             layers.Dense(units=84, activation='relu'),
             layers.Dense(units=10, activation='softmax')
         ])
+        return model
     elif model_struct == 'AlexNet':
         model = tf.keras.Sequential([
             Conv2D(filters=96, input_shape=(224, 224, 3), kernel_size=(11, 11), activation='relu', strides=(4, 4),
@@ -36,25 +37,43 @@ def build_fn(model_struct):
             Dropout(0.4),
             Dense(17, activation='softmax')
         ])
-    return model
+        return model
+    print("model was not LeNet or AlexNet")
 
 
 def build_param(optType):
     if optType == 'Adam':
-        lr = random.random()
-        b1 = random.random()
-        b2 = random.random(b1, 1)
         param_dict = {
-            'lr': lr,
-            'b1': b1,
-            'b2': b2
-        }
-    elif optType == 'SGD':
-        lr = random.random()
-        momentum = random.random()
-        param_dict = {
-            'lr': lr,
-            'momentum': momentum
-        }
-    return param_dict
+            # to assign to the learning rate
+            'lr': random.random(),
+            'lr_std': random.random(),
+            'decay_steps': random.uniform(1, 100), # mutation will be + or - 1
+            'decay': random.random(),
+            'decay_std': random.random(),
+            'staircase': random.choice([True, False]),
 
+
+            'b1': random.random(),
+            'b1_std': random.random(),
+            'b2': random.random(),
+            'b2_std': random.random(),
+            'epsilon': random.random(),
+            'epsilon_std': random.random(),
+        }
+        return param_dict
+    elif optType == 'SGD':
+        param_dict = {
+            # to assign to the learning rate
+            'lr': random.random(),
+            'lr_std': random.random(),
+            'decay_steps': random.uniform(1, 100), # mutation will be + or - 1
+            'decay': random.random(),
+            'decay_std': random.random(),
+            'staircase': random.choice([True, False]),
+
+            'momentum': random.random(),
+            'momentum_std': random.random(),
+            'nesterov': random.choice([True, False])
+        }
+        return param_dict
+    print("optType was not Adam or SGD")
