@@ -3,7 +3,6 @@ from tensorflow.keras import layers, models, Sequential
 from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 import random
 
-
 def build_fn(model_struct):
     if model_struct == 'LeNet':
         model = tf.keras.Sequential([
@@ -51,7 +50,6 @@ def build_param(optType):
             'decay': random.random(),
             'decay_std': random.random(),
             'staircase': random.choice([True, False]),
-
 
             'b1': random.random(),
             'b1_std': random.random(),
