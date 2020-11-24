@@ -13,7 +13,6 @@ creator.create("Individual", dict, fitness=creator.FitnessMin, strategy=None)
 creator.create("Strategy", dict)
 
 toolbox = base.Toolbox()
-opt_type = 'adam'
 
 adam_param_bounds = {
     'lr': [0, 1, 0, 1],  # [param min, param max, strategy min, strategy max]
@@ -35,11 +34,9 @@ sgd_param_bounds = {
 }
 
 
-def build_param(opt_Type, is_strats):
-    index = 0
-    if is_strats:
-        index = 2
-    if opt_Type == 'adam':
+def build_param(optimizer, is_strats):
+    index = 2 if is_strats else 0
+    if optimizer == 'adam':
         param_dict = {
             # to assign to the learning rate
             'lr': random.uniform(adam_param_bounds['lr'][index], adam_param_bounds['lr'][index + 1]),
@@ -53,7 +50,7 @@ def build_param(opt_Type, is_strats):
             'epsilon': random.uniform(adam_param_bounds['epsilon'][index], adam_param_bounds['epsilon'][index + 1]),
         }
         return param_dict
-    elif opt_Type == 'sga':
+    elif optimizer == 'sga':
         param_dict = {
             # to assign to the learning rate
             'lr': random.uniform(sgd_param_bounds['lr'][index], sgd_param_bounds['lr'][index + 1]),
@@ -68,24 +65,36 @@ def build_param(opt_Type, is_strats):
     print("optType was not Adam or SGD")
 
 
-def generate_indiv_adam(indiv_class, strat_class, opt_type):
-    obj_dict = build_param(opt_type, False)
+def generate_indiv(indiv_class, strat_class, optimizer):
+    obj_dict = build_param(optimizer, False)
     indiv = indiv_class(obj_dict)
-    indiv.strategy = strat_class(build_param(opt_type, True))
+    indiv.strategy = strat_class(build_param(optimizer, True))
     return indiv
 
 
 def avg_crossover(indiv1, indiv2):
-    print()
-    # Use list of keys to iterate and avg floats/ints and select booleans randomly
+    new_indiv = dict()
+    for key in indiv1:
+        if type(indiv1[key] == bool):
+            new_indiv[key] = indiv1[key] if random.random() < 0.5 else indiv2[key]  # randomly selects one
+        else:
+            new_indiv[key] = (indiv1[key] + indiv2[key]) / 2
+    return new_indiv
 
 
 def select_crossover(indiv1, indiv2):
-    print("should select from one of the parents randomly")
+    new_indiv1, new_indiv2 = dict(), dict()
+    for key in indiv1:
+        if random.random() < 0.5:
+            new_indiv1[key] = indiv1[key]
+            new_indiv2[key] = indiv2[key]
+        else:
+            new_indiv1[key] = indiv2[key]
+            new_indiv2[key] = indiv1[key]
 
 
 def gaussian_mutate(indiv, indpb, param_bounds):
-    for index, key in enumerate(indiv):
+    for key in indiv:
         if random.random() < indpb:
             tau = (1.0 / (2 * (len(indiv) ** (1 / 2)))) ** (1 / 2)
             tau_prime = 1 / ((2 * (len(indiv))) ** (1 / 2))
@@ -104,7 +113,8 @@ def gaussian_mutate(indiv, indpb, param_bounds):
                     indiv[key] = not indiv[key]
             else:
                 potential = indiv[key] + (indiv.strategy[key] * random.gauss(0, 1))
-                # TODO decide if value should be set to bounds, not mutated, or have a new value generated when the bounds are reached
+                # TODO decide if value should be set to bounds, not mutated, or have a new value generated when the
+                #  bounds are reached
                 if potential < param_bounds[key][0]:
                     indiv[key] = param_bounds[key][0]
                 elif potential > param_bounds[key][1]:
@@ -117,27 +127,29 @@ def gaussian_mutate(indiv, indpb, param_bounds):
 
 def fitness(indiv):
     # Fitness should run the model and return the accuracy
-    return ();
+    return
 
 
-if opt_type == 'adam':
-    toolbox.register("individual", generate_indiv_adam, creator.Individual, creator.Strategy, opt_type)
-    toolbox.register("mutate", gaussian_mutate, indpb=1.0, param_bounds=adam_param_bounds)
-else:
-    toolbox.register("individual", generate_indiv_adam, creator.Individual, creator.Strategy, opt_type)
-    toolbox.register("mutate", gaussian_mutate, indpb=1.0, param_bounds=sgd_param_bounds)
+def setup_toolbox(optimizer):
+    toolbox.register("individual", generate_indiv, creator.Individual, creator.Strategy, optimizer)
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-toolbox.register("avg_crossover", avg_crossover)
-toolbox.register("select_crossover", select_crossover)
+    toolbox.register("avg_crossover", avg_crossover)
+    toolbox.register("select_crossover", select_crossover)
+    if optimizer == 'adam':
+        toolbox.register("mutate", gaussian_mutate, indpb=1.0, param_bounds=adam_param_bounds)
+    else:
+        toolbox.register("mutate", gaussian_mutate, indpb=1.0, param_bounds=sgd_param_bounds)
 
-toolbox.register("select", tools.selBest)
-toolbox.register("evaluate", fitness)
+    toolbox.register("select", tools.selBest)
+    toolbox.register("evaluate", fitness)
 
 
-def run():
+def run(optimizer):
+    setup_toolbox(optimizer)
+
     MU, LAMBDA = 5, 35
-    pop_q1 = toolbox.population(n=MU)
+    population = toolbox.population(n=MU)
 
     hof = tools.HallOfFame(1)
     stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -147,10 +159,10 @@ def run():
     stats.register("min", numpy.min)
     stats.register("max", numpy.max)
 
-    pop, logbook = algorithms.eaMuPlusLambda(pop_q1, toolbox, mu=MU, lambda_=LAMBDA,
+    pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
                                              cxpb=0.5, mutpb=0.5, ngen=14, stats=stats, halloffame=hof, verbose=False)
     print(hof.items[0].fitness, hof.items[0])
     return pop, logbook, hof
 
 
-run()
+run("adam")
