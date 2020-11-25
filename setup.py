@@ -1,4 +1,3 @@
-import math
 import random
 
 import numpy
@@ -7,9 +6,11 @@ from deap import creator
 from deap import tools
 
 import models
+import mutation
+import recombination
 
-creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-creator.create("Individual", dict, fitness=creator.FitnessMin, strategy=None)
+creator.create("FitnessMax", base.Fitness, weights=(-1.0,))
+creator.create("Individual", dict, fitness=creator.FitnessMax, strategy=None)
 creator.create("Strategy", dict)
 
 toolbox = base.Toolbox()
@@ -65,64 +66,12 @@ def build_param(optimizer, is_strats):
     print("optType was not Adam or SGD")
 
 
-def generate_indiv(indiv_class, strat_class, optimizer):
+def generate_indiv(indiv_class, strat_class, optimizer, model_struct):
     obj_dict = build_param(optimizer, False)
     indiv = indiv_class(obj_dict)
     indiv.strategy = strat_class(build_param(optimizer, True))
+    indiv.architecture = models.build_fn(model_struct)
     return indiv
-
-
-def avg_crossover(indiv1, indiv2):
-    new_indiv = dict()
-    for key in indiv1:
-        if type(indiv1[key] == bool):
-            new_indiv[key] = indiv1[key] if random.random() < 0.5 else indiv2[key]  # randomly selects one
-        else:
-            new_indiv[key] = (indiv1[key] + indiv2[key]) / 2
-    return new_indiv
-
-
-def select_crossover(indiv1, indiv2):
-    new_indiv1, new_indiv2 = dict(), dict()
-    for key in indiv1:
-        if random.random() < 0.5:
-            new_indiv1[key] = indiv1[key]
-            new_indiv2[key] = indiv2[key]
-        else:
-            new_indiv1[key] = indiv2[key]
-            new_indiv2[key] = indiv1[key]
-
-
-def gaussian_mutate(indiv, indpb, param_bounds):
-    for key in indiv:
-        if random.random() < indpb:
-            tau = (1.0 / (2 * (len(indiv) ** (1 / 2)))) ** (1 / 2)
-            tau_prime = 1 / ((2 * (len(indiv))) ** (1 / 2))
-
-            # mutating the strategy variable
-            potential_step = indiv.strategy[key] * math.exp(
-                (tau_prime * random.gauss(0, 1)) + (tau * random.gauss(0, 1)))
-            if potential_step < param_bounds[key][2]:
-                potential_step = param_bounds[key][2]
-            elif potential_step > param_bounds[key][3]:
-                potential_step = param_bounds[key][3]
-            indiv.strategy[key] = potential_step
-
-            if type(indiv[key]) == bool:
-                if random.random() > indiv.strategy[key]:  # Thus, a higher strategy value will mean less likely to flip
-                    indiv[key] = not indiv[key]
-            else:
-                potential = indiv[key] + (indiv.strategy[key] * random.gauss(0, 1))
-                # TODO decide if value should be set to bounds, not mutated, or have a new value generated when the
-                #  bounds are reached
-                if potential < param_bounds[key][0]:
-                    indiv[key] = param_bounds[key][0]
-                elif potential > param_bounds[key][1]:
-                    indiv[key] = param_bounds[key][1]
-                else:
-                    indiv[key] = potential
-
-    return indiv,
 
 
 def fitness(indiv):
@@ -130,23 +79,23 @@ def fitness(indiv):
     return
 
 
-def setup_toolbox(optimizer):
-    toolbox.register("individual", generate_indiv, creator.Individual, creator.Strategy, optimizer)
+def setup_toolbox(optimizer, model_struct):
+    toolbox.register("individual", generate_indiv, creator.Individual, creator.Strategy, optimizer, model_struct)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-    toolbox.register("avg_crossover", avg_crossover)
-    toolbox.register("select_crossover", select_crossover)
+    toolbox.register("avg_crossover", recombination.avg_crossover)
+    toolbox.register("select_crossover", recombination.select_crossover)
     if optimizer == 'adam':
-        toolbox.register("mutate", gaussian_mutate, indpb=1.0, param_bounds=adam_param_bounds)
+        toolbox.register("mutate", mutation.gaussian_mutate, indpb=1.0, param_bounds=adam_param_bounds)
     else:
-        toolbox.register("mutate", gaussian_mutate, indpb=1.0, param_bounds=sgd_param_bounds)
+        toolbox.register("mutate", mutation.gaussian_mutate, indpb=1.0, param_bounds=sgd_param_bounds)
 
     toolbox.register("select", tools.selBest)
     toolbox.register("evaluate", fitness)
 
 
-def run(optimizer):
-    setup_toolbox(optimizer)
+def run(optimizer, model_struct):
+    setup_toolbox(optimizer, model_struct)
 
     MU, LAMBDA = 5, 35
     population = toolbox.population(n=MU)
@@ -165,4 +114,4 @@ def run(optimizer):
     return pop, logbook, hof
 
 
-run("adam")
+run("adam", "AlexNet")
