@@ -1,4 +1,3 @@
-import tensorflow as tf
 from tensorflow.keras import layers, models, Sequential
 from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, AveragePooling2D
 import random
@@ -6,7 +5,7 @@ import random
 
 def build_fn(model_struct):
     if model_struct == 'LeNet':
-        model = tf.keras.Sequential([
+        model = Sequential([
             Conv2D(filters=6, kernel_size=(3, 3), activation='relu', input_shape=(224, 224, 1)),  # input shape 1 or 3?
             AveragePooling2D(),
             Conv2D(filters=16, kernel_size=(3, 3), activation='relu'),
@@ -18,7 +17,7 @@ def build_fn(model_struct):
         ])
         return model
     elif model_struct == 'AlexNet':
-        model = tf.keras.Sequential([
+        model = Sequential([
             Conv2D(filters=96, input_shape=(224, 224, 3), kernel_size=(11, 11), activation='relu', strides=(4, 4),
                    padding='valid'),  # Should input shape be 1 or 3?
             MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid'),
@@ -39,7 +38,7 @@ def build_fn(model_struct):
         ])
         return model
     elif model_struct == 'Random':
-        model = tf.keras.Sequential()
+        model = Sequential()
         model.add(random_conv(224, True))
 
         while True:
@@ -69,10 +68,10 @@ def build_fn(model_struct):
 
 def random_conv(input_size, is_first):
     filters = random.randint(1, 500)
-    kernel_rowcol_size = random.randint(1, input_size)
+    kernel_rowcol_size = random.randint(2, input_size)
     kernel_size = (kernel_rowcol_size, kernel_rowcol_size)
 
-    strides = (random.randint(1, kernel_size[0]), random.randint(1, kernel_size[1]))
+    strides = (random.randint(1, kernel_rowcol_size), random.randint(1, kernel_rowcol_size))
 
     padding = random.choice(["valid", "same"])
 
@@ -84,16 +83,16 @@ def random_conv(input_size, is_first):
     return Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding=padding, activation='relu')
 
 
-def random_pool(input_size, type):
-    pool_rowcol_size = random.randint(1, input_size)
+def random_pool(input_size, pool_type):
+    pool_rowcol_size = random.randint(2, input_size)
     pool_size = (pool_rowcol_size, pool_rowcol_size)
 
     strides = (random.randint(1, pool_size[0]), random.randint(1, pool_size[1]))
     padding = random.choice(["valid", "same"])
 
-    if type == 'max':
+    if pool_type == 'max':
         return MaxPooling2D(pool_size=pool_size, strides=strides, padding=padding)
-    elif type == 'average':
+    elif pool_type == 'average':
         return AveragePooling2D(pool_size=pool_size, strides=strides, padding=padding)
 
 

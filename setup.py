@@ -34,14 +34,13 @@ sgd_param_bounds = {
     'nesterov': [True, False, 0, 1],
 }
 
-
 def build_param(optimizer, is_strats):
     index = 2 if is_strats else 0
     if optimizer == 'adam':
         param_dict = {
             # to assign to the learning rate
             'lr': random.uniform(adam_param_bounds['lr'][index], adam_param_bounds['lr'][index + 1]),
-            'decay_steps': random.uniform(adam_param_bounds['decay_steps'][index],
+            'decay_steps': random.uniform(adam_param_bounds['decay_steps'][index],  # TODO needs to be random.randint()
                                           adam_param_bounds['decay_steps'][index + 1]),
             'decay': random.uniform(adam_param_bounds['decay'][index], adam_param_bounds['decay'][index + 1]),
             'staircase': random.uniform(adam_param_bounds['staircase'][index],
@@ -67,10 +66,10 @@ def build_param(optimizer, is_strats):
 
 
 def generate_indiv(indiv_class, strat_class, optimizer, model_struct):
-    obj_dict = build_param(optimizer, False)
-    indiv = indiv_class(obj_dict)
+    indiv = indiv_class(build_param(optimizer, False))
     indiv.strategy = strat_class(build_param(optimizer, True))
     indiv.architecture = models.build_fn(model_struct)
+    # TODO Maybe add indiv.architecture.strategy?
     return indiv
 
 
@@ -86,9 +85,9 @@ def setup_toolbox(optimizer, model_struct):
     toolbox.register("avg_crossover", recombination.avg_crossover)
     toolbox.register("select_crossover", recombination.select_crossover)
     if optimizer == 'adam':
-        toolbox.register("mutate", mutation.gaussian_mutate, indpb=1.0, param_bounds=adam_param_bounds)
+        toolbox.register("mutate", mutation.gaussian_mutate_optimizer, indpb=1.0, param_bounds=adam_param_bounds)
     else:
-        toolbox.register("mutate", mutation.gaussian_mutate, indpb=1.0, param_bounds=sgd_param_bounds)
+        toolbox.register("mutate", mutation.gaussian_mutate_optimizer, indpb=1.0, param_bounds=sgd_param_bounds)
 
     toolbox.register("select", tools.selBest)
     toolbox.register("evaluate", fitness)

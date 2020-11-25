@@ -1,5 +1,6 @@
 import random
 
+
 def avg_crossover(indiv1, indiv2):
     new_indiv = dict()
     for key in indiv1:
