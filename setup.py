@@ -5,7 +5,7 @@ from deap import base, algorithms
 from deap import creator
 from deap import tools
 
-import models
+import architecture
 import mutation
 import recombination
 
@@ -33,6 +33,7 @@ sgd_param_bounds = {
     'momentum': [0, 1, 0, 1],
     'nesterov': [True, False, 0, 1],
 }
+
 
 def build_param(optimizer, is_strats):
     index = 2 if is_strats else 0
@@ -68,7 +69,7 @@ def build_param(optimizer, is_strats):
 def generate_indiv(indiv_class, strat_class, optimizer, model_struct):
     indiv = indiv_class(build_param(optimizer, False))
     indiv.strategy = strat_class(build_param(optimizer, True))
-    indiv.architecture = models.build_fn(model_struct)
+    indiv.architecture = architecture.build_fn(model_struct)
     # TODO Maybe add indiv.architecture.strategy?
     return indiv
 

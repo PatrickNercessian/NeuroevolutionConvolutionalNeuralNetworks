@@ -1,4 +1,5 @@
 import random
+from tensorflow.keras import Sequential
 
 
 def avg_crossover(indiv1, indiv2):
@@ -20,3 +21,9 @@ def select_crossover(indiv1, indiv2):
         else:
             new_indiv1[key] = indiv2[key]
             new_indiv2[key] = indiv1[key]
+
+
+def architecture_crossover(indiv1, indiv2):
+    model1: Sequential = indiv1.architecture
+    model2: Sequential = indiv2.architecture
+    # TODO

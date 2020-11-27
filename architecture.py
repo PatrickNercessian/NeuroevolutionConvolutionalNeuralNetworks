@@ -1,4 +1,4 @@
-from tensorflow.keras import layers, models, Sequential
+from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, AveragePooling2D
 import random
 
@@ -42,7 +42,10 @@ def build_fn(model_struct):
         model.add(random_conv(224, True))
 
         while True:
-            input_size = model.layers[-1].output_shape[2]  # index might not be 2, need to test to find row/col size
+            input_size = min(
+                model.layers[-1].output_shape[1],
+                model.layers[-1].output_shape[2]
+            )
             rand_val = random.random()
             if not any(isinstance(x, Flatten) for x in model.layers):  # if there's not a Flatten layer yet
                 if rand_val < 0.3:
@@ -55,7 +58,7 @@ def build_fn(model_struct):
                     model.add(Flatten())
             else:  # if there is a Flatten layer already
                 if rand_val < 0.35:
-                    model.add(Dropout(random.random()))
+                    model.add(random_dropout())
                 elif rand_val < 0.7:
                     model.add(random_dense(False))
                 else:
@@ -94,6 +97,10 @@ def random_pool(input_size, pool_type):
         return MaxPooling2D(pool_size=pool_size, strides=strides, padding=padding)
     elif pool_type == 'average':
         return AveragePooling2D(pool_size=pool_size, strides=strides, padding=padding)
+
+
+def random_dropout():
+    return Dropout(random.random())
 
 
 def random_dense(is_last):
