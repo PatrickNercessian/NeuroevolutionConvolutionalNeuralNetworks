@@ -66,7 +66,7 @@ def mutate_architecture(indiv):
 # (is_copy, !remove_original) just creates a copy of random existing layer and inserts randomly
 # (is_copy, remove_original) removes the original so that it effectively just moves the original somewhere else
 def insert_new_layer(model: Sequential, flatten_index: int, is_copy=False, remove_original=False):
-    insert_index = random.randint(1, model.layers.count() - 1)
+    insert_index = random.randint(1, len(model.layers) - 1)
 
     if insert_index <= flatten_index:
         input_size = min(
@@ -85,7 +85,7 @@ def insert_new_layer(model: Sequential, flatten_index: int, is_copy=False, remov
                                                              ]))
     else:
         if is_copy:
-            orig_index = random.randint(flatten_index+1, model.layers.count())
+            orig_index = random.randint(flatten_index+1, len(model.layers))
             model.layers.insert(insert_index, model.layers.index(orig_index))
             if remove_original:
                 model.layers.pop(orig_index)
@@ -96,11 +96,11 @@ def insert_new_layer(model: Sequential, flatten_index: int, is_copy=False, remov
 
 
 def remove_random_layer(model: Sequential, flatten_index: int):
-    remove_index = random.randint(1, model.layers.count() - 1)
+    remove_index = random.randint(1, len(model.layers) - 1)
     if remove_index == flatten_index:  # can't remove flatten layer
         return
 
-    model.layers.pop(random.randint(1, model.layers.count() - 1))
+    model.layers.pop(random.randint(1, len(model.layers) - 1))
 
 
 # TODO Decide on probabilities of each mutation
