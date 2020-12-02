@@ -1,6 +1,7 @@
 import random
 
 import numpy
+import tensorflow
 from deap import base, algorithms
 from deap import creator
 from deap import tools
@@ -40,6 +41,7 @@ def build_param(optimizer, is_strats):
     if optimizer == 'adam':
         param_dict = {
             # to assign to the learning rate
+            'optimizer': optimizer,
             'lr': random.uniform(adam_param_bounds['lr'][index], adam_param_bounds['lr'][index + 1]),
             'decay_steps': random.uniform(adam_param_bounds['decay_steps'][index],  # TODO needs to be random.randint()
                                           adam_param_bounds['decay_steps'][index + 1]),
@@ -54,6 +56,7 @@ def build_param(optimizer, is_strats):
     elif optimizer == 'sga':
         param_dict = {
             # to assign to the learning rate
+            'optimizer': optimizer,
             'lr': random.uniform(sgd_param_bounds['lr'][index], sgd_param_bounds['lr'][index + 1]),
             'decay_steps': random.uniform(sgd_param_bounds['decay_steps'][index],
                                           sgd_param_bounds['decay_steps'][index + 1]),
@@ -76,7 +79,29 @@ def generate_indiv(indiv_class, strat_class, optimizer, model_struct):
 
 def fitness(indiv):
     # Fitness should run the model and return the accuracy
-    return
+    model = indiv.architecture
+    # pull param dict
+    # create optimizer
+    # fit on train data
+    # evaluate on test data
+    # if possible get computation time and add penalty
+    if indiv['optimizer'] == 'adam':
+        lr_schedule = tensorflow.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=indiv['lr']
+                                                                             ,decay_steps= indiv['decay_steps'],decay_rate=indiv['decay_rate'],
+                                                                             staircase=indiv['staircase'])
+        opt = tensorflow.keras.optimizers.Adam(learning_rate=lr_schedule,beta_1=indiv['b1'],beta_2=indiv['b2'],
+                                               epsilon=indiv['epsilon'])
+    elif indiv['optimizer'] == 'sga':
+        lr_schedule = tensorflow.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=indiv['lr']
+                                                                             , decay_steps=indiv['decay_steps'],
+                                                                             decay_rate=indiv['decay_rate'],
+                                                                             staircase=indiv['staircase'])
+        opt = tensorflow.keras.optimizers.SGD(learning_rate=lr_schedule,momentum=indiv['momentum'],nesterov=indiv['nesterov'])
+    model.compile(loss = 'categorical_crossentropy',optimizer=opt,metrics=['accuracy'])
+    model.fit(train_images,train_labels,batch_size =20,epochs = 5)
+    fitness = model.evaluate(test_images,test_labels)[1]
+
+    return fitness
 
 
 def setup_toolbox(optimizer, model_struct):
