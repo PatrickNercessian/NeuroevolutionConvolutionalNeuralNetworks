@@ -9,32 +9,37 @@ from typing import Union
 
 
 def gaussian_mutate_optimizer(indiv, indpb, param_bounds):
-    for key in indiv:
+    optimizer_dict = indiv['optimizer']
+    optimizer_strat_dict = indiv['optimizer_strat']
+    for key in optimizer_strat_dict:
         if random.random() < indpb:
-            tau = (1.0 / (2 * (len(indiv) ** (1 / 2)))) ** (1 / 2)
-            tau_prime = 1 / ((2 * (len(indiv))) ** (1 / 2))
+            tau = (1.0 / (2 * (len(optimizer_dict) ** (1 / 2)))) ** (1 / 2)
+            tau_prime = 1 / ((2 * (len(optimizer_dict))) ** (1 / 2))
 
             # mutating the strategy variable
-            potential_step = indiv.strategy[key] * math.exp(
-                (tau_prime * random.gauss(0, 1)) + (tau * random.gauss(0, 1))
+            potential_step = optimizer_strat_dict[key] * math.exp(
+                (tau_prime * random.gauss(0, 1))
+                + (tau * random.gauss(0, 1))
             )
-            indiv.strategy[key] = keep_in_bounds(potential_step, param_bounds[key][2], param_bounds[key][3])
+            optimizer_strat_dict[key] = keep_in_bounds(potential_step, param_bounds[key][2], param_bounds[key][3])
 
-            if type(indiv[key]) == bool:
-                if random.random() > indiv.strategy[key]:  # Thus, a higher strategy value will mean less likely to flip
-                    indiv[key] = not indiv[key]
+            if type(optimizer_dict[key]) == bool:
+                if random.random() > optimizer_strat_dict[key]:  # a higher strategy value will mean less likely to flip
+                    optimizer_dict[key] = not optimizer_dict[key]
             else:
-                indiv[key] = keep_in_bounds(indiv[key] + (indiv.strategy[key] * random.gauss(0, 1)),
-                                            param_bounds[key][0],
-                                            param_bounds[key][1]
-                                            )
-
+                optimizer_dict[key] = keep_in_bounds(optimizer_dict[key] +
+                                                     (optimizer_strat_dict[key] * random.gauss(0, 1)),
+                                                     param_bounds[key][0],
+                                                     param_bounds[key][1]
+                                                     )
+    indiv['optimizer'] = optimizer_dict
+    indiv['optimizer_strat_dict'] = optimizer_strat_dict
     return indiv,
 
 
 # TODO Decide on probabilities of each mutation
 def mutate_architecture(indiv):
-    model: Sequential = indiv.architecture
+    model: Sequential = indiv['architecture']
     rand_val = random.random()
 
     # TODO double check that this works
@@ -85,7 +90,7 @@ def insert_new_layer(model: Sequential, flatten_index: int, is_copy=False, remov
                                                              ]))
     else:
         if is_copy:
-            orig_index = random.randint(flatten_index+1, len(model.layers))
+            orig_index = random.randint(flatten_index + 1, len(model.layers))
             model.layers.insert(insert_index, model.layers.index(orig_index))
             if remove_original:
                 model.layers.pop(orig_index)

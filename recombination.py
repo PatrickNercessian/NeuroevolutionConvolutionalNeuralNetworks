@@ -5,25 +5,39 @@ from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Conv2D, Flatten, MaxPooling2D, AveragePooling2D
 
 
-def avg_crossover(indiv1, indiv2):
-    new_indiv = dict()
+def optimizer_crossover(indiv1, indiv2):
+    if random.random() < 0.5:
+        return weighted_avg_crossover(indiv1, indiv2)
+    else:
+        return select_crossover(indiv1, indiv2)
+
+
+def weighted_avg_crossover(indiv1, indiv2):
+    # new_indiv1 = dict()
+    # new_indiv2 = dict()
     for key in indiv1:
+        rand_val = random.random()
         if type(indiv1[key] == bool):
-            new_indiv[key] = indiv1[key] if random.random() < 0.5 else indiv2[key]  # randomly selects one
+            indiv1[key] = indiv1[key] if rand_val < 0.5 else indiv2[key]  # randomly selects one
+            indiv2[key] = indiv2[key] if rand_val < 0.5 else indiv1[key]  # randomly selects one
         else:
-            new_indiv[key] = (indiv1[key] + indiv2[key]) / 2
-    return new_indiv
+            indiv1[key] = ((rand_val * indiv1[key]) + ((1 - rand_val) * indiv2[key])) / 2  # random weight to each
+            indiv2[key] = (((1 - rand_val) * indiv1[key]) + (rand_val * indiv2[key])) / 2  # random weight to each
+
+    return indiv1, indiv2
 
 
 def select_crossover(indiv1, indiv2):
-    new_indiv1, new_indiv2 = dict(), dict()
+    # new_indiv1, new_indiv2 = dict(), dict()
     for key in indiv1:
         if random.random() < 0.5:
-            new_indiv1[key] = indiv1[key]
-            new_indiv2[key] = indiv2[key]
+            indiv1[key] = indiv1[key]
+            indiv2[key] = indiv2[key]
         else:
-            new_indiv1[key] = indiv2[key]
-            new_indiv2[key] = indiv1[key]
+            temp = indiv1[key]
+            indiv1[key] = indiv2[key]
+            indiv2[key] = temp
+    return indiv1, indiv2
 
 
 def architecture_crossover(indiv1, indiv2):
