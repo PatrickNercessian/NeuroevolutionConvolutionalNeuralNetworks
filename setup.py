@@ -51,6 +51,8 @@ def convert_images():
     directory = 'archive/brain_tumor_dataset/no/'
     list_nparrays = []
     list_labels = []
+    #list_labelsnoTumor = []
+    #this could help accuracy but we must also change the output shape in architecture to this manner
     for i, filename in enumerate(os.listdir(directory)):
         if filename.endswith(".jpg") or filename.endswith(".jpeg"):
             image = Image.open(directory + filename)
@@ -58,6 +60,7 @@ def convert_images():
             data = asarray(image_resized_grayscale)
             list_nparrays.append(data)
             list_labels.append(0)
+            # list_labelsnoTumor.append(1)
 
     directory = 'archive/brain_tumor_dataset/yes/'
     for i, filename in enumerate(os.listdir(directory)):
@@ -67,6 +70,7 @@ def convert_images():
             data = asarray(image_resized_grayscale)
             list_nparrays.append(data)
             list_labels.append(1)
+            # list_labelsnoTumor.append(0)
 
     return list_nparrays, list_labels
 
