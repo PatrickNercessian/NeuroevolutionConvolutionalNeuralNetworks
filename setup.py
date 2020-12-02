@@ -1,7 +1,7 @@
 import random
-import sklearn
 import numpy
 import tensorflow
+from tensorflow.keras import Sequential
 from deap import base, algorithms
 from deap import creator
 from deap import tools
@@ -9,6 +9,11 @@ from deap import tools
 import architecture
 import mutation
 import recombination
+
+from PIL import Image, ImageOps
+from numpy import asarray
+import numpy as np
+import os
 
 creator.create("FitnessMax", base.Fitness, weights=(-1.0,))
 creator.create("Individual", dict, fitness=creator.FitnessMax, strategy=None)
@@ -35,10 +40,36 @@ sgd_param_bounds = {
     'nesterov': [True, False, 0, 1],
 }
 
-def train_test_split(images, label):
+
+def split(images, labels):
     from sklearn.model_selection import train_test_split
-    x_train,x_test,y_train,y_test = train_test_split(images,labels, test_size=0.2,random_state=3)
-    return x_train,x_test,y_train,y_test
+    x_train, x_test, y_train, y_test = train_test_split(images, labels, test_size=0.2, random_state=3)
+    return np.array(x_train), np.array(x_test), np.array(y_train), np.array(y_test)
+
+
+def convert_images():
+    directory = 'archive/brain_tumor_dataset/no/'
+    list_nparrays = []
+    list_labels = []
+    for i, filename in enumerate(os.listdir(directory)):
+        if filename.endswith(".jpg") or filename.endswith(".jpeg"):
+            image = Image.open(directory + filename)
+            image_resized_grayscale = ImageOps.grayscale(image.resize((224, 224)))
+            data = asarray(image_resized_grayscale)
+            list_nparrays.append(data)
+            list_labels.append(0)
+
+    directory = 'archive/brain_tumor_dataset/yes/'
+    for i, filename in enumerate(os.listdir(directory)):
+        if filename.endswith(".jpg") or filename.endswith(".jpeg"):
+            image = Image.open(directory + filename)
+            image_resized_grayscale = ImageOps.grayscale(image.resize((224, 224)))
+            data = asarray(image_resized_grayscale)
+            list_nparrays.append(data)
+            list_labels.append(1)
+
+    return list_nparrays, list_labels
+
 
 def build_param(optimizer, is_strats):
     index = 2 if is_strats else 0
@@ -82,30 +113,35 @@ def generate_indiv(indiv_class, strat_class, optimizer, model_struct):
 
 
 def fitness(indiv):
-    # Fitness should run the model and return the accuracy
-    model = indiv.architecture
-    # pull param dict
-    # create optimizer
-    # fit on train data
-    # evaluate on test data
+    model = Sequential(indiv.architecture)
     # if possible get computation time and add penalty
     if indiv['optimizer'] == 'adam':
-        lr_schedule = tensorflow.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=indiv['lr']
-                                                                             ,decay_steps= indiv['decay_steps'],decay_rate=indiv['decay_rate'],
+        lr_schedule = tensorflow.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=indiv['lr'],
+                                                                             decay_steps=indiv['decay_steps'],
+                                                                             decay_rate=indiv['decay'],
                                                                              staircase=indiv['staircase'])
-        opt = tensorflow.keras.optimizers.Adam(learning_rate=lr_schedule,beta_1=indiv['b1'],beta_2=indiv['b2'],
+        opt = tensorflow.keras.optimizers.Adam(learning_rate=lr_schedule, beta_1=indiv['b1'], beta_2=indiv['b2'],
                                                epsilon=indiv['epsilon'])
     elif indiv['optimizer'] == 'sga':
-        lr_schedule = tensorflow.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=indiv['lr']
-                                                                             , decay_steps=indiv['decay_steps'],
-                                                                             decay_rate=indiv['decay_rate'],
+        lr_schedule = tensorflow.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=indiv['lr'],
+                                                                             decay_steps=indiv['decay_steps'],
+                                                                             decay_rate=indiv['decay'],
                                                                              staircase=indiv['staircase'])
-        opt = tensorflow.keras.optimizers.SGD(learning_rate=lr_schedule,momentum=indiv['momentum'],nesterov=indiv['nesterov'])
-    model.compile(loss = 'categorical_crossentropy',optimizer=opt,metrics=['accuracy'])
-    model.fit(train_images,train_labels,batch_size =20,epochs = 5)
-    fitness = model.evaluate(test_images,test_labels)[0]
+        opt = tensorflow.keras.optimizers.SGD(learning_rate=lr_schedule, momentum=indiv['momentum'],
+                                              nesterov=indiv['nesterov'])
+    model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
 
-    return fitness
+    x_train = data_split[0].reshape(-1, 224, 224, 1)
+    x_test = data_split[1].reshape(-1, 224, 224, 1)
+    # print(model.summary())
+    model.fit(x_train, data_split[2], batch_size=20, epochs=2)
+    fit = model.evaluate(x_test, data_split[3])[1]
+    print(fit)
+    return fit,
+
+
+img_data, img_labels = convert_images()
+data_split = split(img_data, img_labels)
 
 
 def setup_toolbox(optimizer, model_struct):
@@ -126,7 +162,7 @@ def setup_toolbox(optimizer, model_struct):
 def run(optimizer, model_struct):
     setup_toolbox(optimizer, model_struct)
 
-    MU, LAMBDA = 5, 35
+    MU, LAMBDA = 3, 3
     population = toolbox.population(n=MU)
 
     hof = tools.HallOfFame(1)
@@ -138,8 +174,11 @@ def run(optimizer, model_struct):
     stats.register("max", numpy.max)
 
     pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
-                                             cxpb=0.5, mutpb=0.5, ngen=14, stats=stats, halloffame=hof, verbose=False)
-    print(hof.items[0].fitness, hof.items[0])
+                                             cxpb=0.5, mutpb=0.5, ngen=14, stats=stats, verbose=True)
+
+    # pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
+    #                                          cxpb=0.5, mutpb=0.5, ngen=14, stats=stats, halloffame=hof, verbose=False)
+    # print(hof.items[0].fitness, hof.items[0])
     return pop, logbook, hof
 
 
