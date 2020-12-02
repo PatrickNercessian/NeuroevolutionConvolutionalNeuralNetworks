@@ -1,5 +1,5 @@
 import random
-
+import sklearn
 import numpy
 import tensorflow
 from deap import base, algorithms
@@ -35,6 +35,10 @@ sgd_param_bounds = {
     'nesterov': [True, False, 0, 1],
 }
 
+def train_test_split(images, label):
+    from sklearn.model_selection import train_test_split
+    x_train,x_test,y_train,y_test = train_test_split(images,labels, test_size=0.2,random_state=3)
+    return x_train,x_test,y_train,y_test
 
 def build_param(optimizer, is_strats):
     index = 2 if is_strats else 0
@@ -99,7 +103,7 @@ def fitness(indiv):
         opt = tensorflow.keras.optimizers.SGD(learning_rate=lr_schedule,momentum=indiv['momentum'],nesterov=indiv['nesterov'])
     model.compile(loss = 'categorical_crossentropy',optimizer=opt,metrics=['accuracy'])
     model.fit(train_images,train_labels,batch_size =20,epochs = 5)
-    fitness = model.evaluate(test_images,test_labels)[1]
+    fitness = model.evaluate(test_images,test_labels)[0]
 
     return fitness
 
