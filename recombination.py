@@ -13,30 +13,25 @@ def optimizer_crossover(indiv1, indiv2):
 
 
 def weighted_avg_crossover(indiv1, indiv2):
-    # new_indiv1 = dict()
-    # new_indiv2 = dict()
-    for key in indiv1:
+    for key in indiv1['optimizer']:
         rand_val = random.random()
-        if type(indiv1[key] == bool):
-            indiv1[key] = indiv1[key] if rand_val < 0.5 else indiv2[key]  # randomly selects one
-            indiv2[key] = indiv2[key] if rand_val < 0.5 else indiv1[key]  # randomly selects one
-        else:
-            indiv1[key] = ((rand_val * indiv1[key]) + ((1 - rand_val) * indiv2[key])) / 2  # random weight to each
-            indiv2[key] = (((1 - rand_val) * indiv1[key]) + (rand_val * indiv2[key])) / 2  # random weight to each
-
+        if type(indiv1['optimizer'][key]) == bool:
+            indiv1['optimizer'][key] = indiv1['optimizer'][key] if rand_val < 0.5 else indiv2['optimizer'][key]  # randomly selects one
+            indiv2['optimizer'][key] = indiv2['optimizer'][key] if rand_val < 0.5 else indiv1['optimizer'][key]  # randomly selects one
+        elif key != 'optimizer_type':
+            indiv1['optimizer'][key] = ((rand_val * indiv1['optimizer'][key])
+                                        + ((1 - rand_val) * indiv2['optimizer'][key])) / 2.0  # random weight to each
+            indiv2['optimizer'][key] = (((1 - rand_val) * indiv1['optimizer'][key])
+                                        + (rand_val * indiv2['optimizer'][key])) / 2.0  # random weight to each
     return indiv1, indiv2
 
 
 def select_crossover(indiv1, indiv2):
-    # new_indiv1, new_indiv2 = dict(), dict()
-    for key in indiv1:
-        if random.random() < 0.5:
-            indiv1[key] = indiv1[key]
-            indiv2[key] = indiv2[key]
-        else:
-            temp = indiv1[key]
-            indiv1[key] = indiv2[key]
-            indiv2[key] = temp
+    for key in indiv1['optimizer']:
+        if random.random() > 0.5:
+            temp = indiv1['optimizer'][key]
+            indiv1['optimizer'][key] = indiv2['optimizer'][key]
+            indiv2['optimizer'][key] = temp
     return indiv1, indiv2
 
 
