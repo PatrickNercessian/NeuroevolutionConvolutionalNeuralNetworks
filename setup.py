@@ -162,7 +162,7 @@ def fitness(indiv):
 
     x_train = data_split[0].reshape(-1, 224, 224, 1)
     x_test = data_split[1].reshape(-1, 224, 224, 1)
-    model.fit(x_train, data_split[2], batch_size=20, epochs=20)
+    model.fit(x_train, data_split[2], batch_size=32, epochs=20)
     fit = model.evaluate(x_test, data_split[3])[1]
     print(fit)
     tensorflow.keras.backend.clear_session()
@@ -223,7 +223,7 @@ def run(optimizer, model_struct):
     stats.register("max", numpy.max)
 
     pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
-                                             cxpb=0.5, mutpb=0.5, ngen=20, stats=stats, verbose=True)
+                                             cxpb=0.5, mutpb=0.5, ngen=15, stats=stats, verbose=True)
     logbook.header = "gen", "avg", "max"
     # pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
     #                                          cxpb=0.5, mutpb=0.5, ngen=14, stats=stats, halloffame=hof, verbose=False)
@@ -237,7 +237,9 @@ fileNames = []
 while x < 50:
     fileNames.append(x)
     x += 1
-while runs >= 0:
+
+x = 0
+while x < runs:
     pop, logbook= run("adam", "LeNet")
     gen = logbook.select("gen")
     fit_max = logbook.select("max")
@@ -245,7 +247,7 @@ while runs >= 0:
     plt.xlabel('Generation')
     plt.ylabel('Fitness')
     df_log = pd.DataFrame(logbook)
-    df_log.to_csv('C:/Users/bryan/Desktop/CSVs\{}.csv'.format(fileNames[runs]))
-    runs -= 1
+    df_log.to_csv('C:/Users/bryan/Desktop/CSVs\{}.csv'.format(fileNames[x]))
+    x += 1
     tensorflow.keras.backend.clear_session()
     time.sleep(20)
