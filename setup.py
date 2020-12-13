@@ -1,6 +1,7 @@
 import random
 import numpy
 import tensorflow
+import pandas as pd
 from tensorflow.keras import Sequential
 from deap import base, algorithms
 from deap import creator
@@ -229,11 +230,19 @@ def run(optimizer, model_struct):
     return pop, logbook
 
 
-pop, logbook= run("adam", "LeNet")
-gen = logbook.select("gen")
-fit_max = logbook.select("max")
-plt.plot(gen, fit_max, label = 'Best Fitness in each Generation')
-plt.xlabel('Generation')
-plt.ylabel('Fitness')
-plt.show()
-plt.savefig('Fitness')
+runs = 1
+x = 0
+fileNames = []
+while x <= runs:
+    fileNames.append(x)
+    x += 1
+while runs >= 0:
+    pop, logbook= run("adam", "LeNet")
+    gen = logbook.select("gen")
+    fit_max = logbook.select("max")
+    plt.plot(gen, fit_max, label = 'Best Fitness in each Generation')
+    plt.xlabel('Generation')
+    plt.ylabel('Fitness')
+    df_log = pd.DataFrame(logbook)
+    df_log.to_csv('C:/Users/bryan/Desktop/CSVs\{}.csv'.format(fileNames[runs]))
+    runs -= 1
