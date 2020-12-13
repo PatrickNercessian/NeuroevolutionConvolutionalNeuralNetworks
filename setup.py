@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import architecture
 import mutation
 import recombination
+import time
 
 from PIL import Image, ImageOps
 from numpy import asarray
@@ -230,10 +231,10 @@ def run(optimizer, model_struct):
     return pop, logbook
 
 
-runs = 1
+runs = 50
 x = 0
 fileNames = []
-while x <= runs:
+while x < 50:
     fileNames.append(x)
     x += 1
 while runs >= 0:
@@ -246,3 +247,5 @@ while runs >= 0:
     df_log = pd.DataFrame(logbook)
     df_log.to_csv('C:/Users/bryan/Desktop/CSVs\{}.csv'.format(fileNames[runs]))
     runs -= 1
+    tensorflow.keras.backend.clear_session()
+    time.sleep(20)
