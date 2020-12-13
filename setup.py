@@ -5,7 +5,7 @@ from tensorflow.keras import Sequential
 from deap import base, algorithms
 from deap import creator
 from deap import tools
-
+import matplotlib.pyplot as plt
 import architecture
 import mutation
 import recombination
@@ -15,7 +15,7 @@ from numpy import asarray
 import numpy as np
 import os
 
-creator.create("FitnessMax", base.Fitness, weights=(-1.0,))
+creator.create("FitnessMax", base.Fitness, weights=(1.0,))
 creator.create("Individual", dict, fitness=creator.FitnessMax, strategy=None)
 creator.create("Strategy", dict)
 
@@ -160,9 +160,10 @@ def fitness(indiv):
 
     x_train = data_split[0].reshape(-1, 224, 224, 1)
     x_test = data_split[1].reshape(-1, 224, 224, 1)
-    model.fit(x_train, data_split[2], batch_size=20, epochs=5)
+    model.fit(x_train, data_split[2], batch_size=20, epochs=20)
     fit = model.evaluate(x_test, data_split[3])[1]
     print(fit)
+    tensorflow.keras.backend.clear_session()
     return (fit,)
 
 
@@ -205,14 +206,14 @@ def setup_toolbox(optimizer, model_struct):
 def run(optimizer, model_struct):
     setup_toolbox(optimizer, model_struct)
 
-    MU, LAMBDA = 3, 9
+    MU, LAMBDA = 5, 15
     population = toolbox.population(n=MU)
 
     for indiv in population:
         print(indiv['optimizer'])
 
     hof = tools.HallOfFame(1)
-    stats = tools.Statistics(lambda ind: ind.fitness.values)
+    stats = tools.Statistics(key=lambda ind: ind.fitness.values)
 
     stats.register("avg", numpy.mean)
     stats.register("std", numpy.std)
@@ -220,12 +221,19 @@ def run(optimizer, model_struct):
     stats.register("max", numpy.max)
 
     pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
-                                             cxpb=0.5, mutpb=0.5, ngen=14, stats=stats, verbose=True)
-
+                                             cxpb=0.5, mutpb=0.5, ngen=20, stats=stats, verbose=True)
+    logbook.header = "gen", "avg", "max"
     # pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
     #                                          cxpb=0.5, mutpb=0.5, ngen=14, stats=stats, halloffame=hof, verbose=False)
     # print(hof.items[0].fitness, hof.items[0])
-    return pop, logbook, hof
+    return pop, logbook
 
 
-run("adam", "AlexNet")
+pop, logbook= run("adam", "LeNet")
+gen = logbook.select("gen")
+fit_max = logbook.select("max")
+plt.plot(gen, fit_max, label = 'Best Fitness in each Generation')
+plt.xlabel('Generation')
+plt.ylabel('Fitness')
+plt.show()
+plt.savefig('Fitness')

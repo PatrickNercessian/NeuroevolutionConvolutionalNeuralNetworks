@@ -6,7 +6,7 @@ import random
 def build_fn(model_struct):
     if model_struct == 'LeNet':
         model = Sequential([
-            Conv2D(filters=6, kernel_size=(3, 3), activation='relu', input_shape=(224, 224)),  # input shape 1 or 3?
+            Conv2D(filters=6, kernel_size=(3, 3), activation='relu', input_shape=(224, 224, 1)),  # input shape 1 or 3?
             AveragePooling2D(),
             Conv2D(filters=16, kernel_size=(3, 3), activation='relu'),
             AveragePooling2D(),
