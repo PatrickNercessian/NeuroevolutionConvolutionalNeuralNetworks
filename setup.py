@@ -162,7 +162,7 @@ def fitness(indiv):
 
     x_train = data_split[0].reshape(-1, 224, 224, 1)
     x_test = data_split[1].reshape(-1, 224, 224, 1)
-    model.fit(x_train, data_split[2], batch_size=32, epochs=20)
+    model.fit(x_train, data_split[2], batch_size=20, epochs=15)
     fit = model.evaluate(x_test, data_split[3])[1]
     print(fit)
     tensorflow.keras.backend.clear_session()
@@ -208,7 +208,7 @@ def setup_toolbox(optimizer, model_struct):
 def run(optimizer, model_struct):
     setup_toolbox(optimizer, model_struct)
 
-    MU, LAMBDA = 5, 15
+    MU, LAMBDA = 4, 12
     population = toolbox.population(n=MU)
 
     for indiv in population:
@@ -224,6 +224,13 @@ def run(optimizer, model_struct):
 
     pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
                                              cxpb=0.5, mutpb=0.5, ngen=15, stats=stats, verbose=True)
+
+    #pop, logbook = algorithms.eaMuCommaLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
+                                             #cxpb=0.5, mutpb=0.5, ngen=15, stats=stats, verbose = False)
+
+    #pop, logbook = algorithms.eaSimple(population, toolbox, cxpb = .75, mutpb = .25, stats=stats, verbose=False)
+
+
     logbook.header = "gen", "avg", "max"
     # pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
     #                                          cxpb=0.5, mutpb=0.5, ngen=14, stats=stats, halloffame=hof, verbose=False)
