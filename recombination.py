@@ -1,6 +1,9 @@
 import random
 from typing import Union
 
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Conv2D, Flatten, MaxPooling2D, AveragePooling2D
 
@@ -37,8 +40,7 @@ def select_crossover(indiv1, indiv2):
 
 def architecture_crossover(indiv1, indiv2):
     new_model = Sequential()
-    model1: Sequential = indiv1.architecture
-    model2: Sequential = indiv2.architecture
+    model1, model2 = Sequential.from_config(indiv1['architecture']), Sequential.from_config(indiv2['architecture'])
     i1, i2 = 1, 1  # Ignore the first layer
 
     while i1 < len(model1.layers) and i2 < len(model2.layers):
