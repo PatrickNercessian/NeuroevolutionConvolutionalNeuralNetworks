@@ -231,7 +231,7 @@ def setup_toolbox(optimizer, model_struct):
 def run(optimizer, model_struct):
     setup_toolbox(optimizer, model_struct)
 
-    MU, LAMBDA = 4, 12
+    MU, LAMBDA = 5, 15
     population = toolbox.population(n=MU)
 
     for indiv in population:
@@ -246,10 +246,10 @@ def run(optimizer, model_struct):
     stats.register("max", numpy.max)
 
     pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
-                                             cxpb=0.5, mutpb=0.5, ngen=15, stats=stats, halloffame=hof, verbose=True)
+                                             cxpb=0.5, mutpb=0.5, ngen=1, stats=stats, halloffame=hof, verbose=True)
     logbook.header = "gen", "avg", "max"
     print(hof.items[0].fitness, hof.items[0])
-    return pop, logbook
+    return pop, logbook, hof
 
 
 # run("adam", "Random")
@@ -262,15 +262,20 @@ while x < 50:
     x += 1
 
 x = 0
+
+hallOfFame=[]
+
 while x < runs:
-    pop, logbook = run("adam", "LeNet")
+    pop, logbook, hof = run("adam", "LeNet")
     gen = logbook.select("gen")
     fit_max = logbook.select("max")
-    plt.plot(gen, fit_max, label='Best Fitness in each Generation')
-    plt.xlabel('Generation')
-    plt.ylabel('Fitness')
+    #plt.plot(gen, fit_max, label='Best Fitness in each Generation')
+    #plt.xlabel('Generation')
+    #plt.ylabel('Fitness')
+    hallOfFame.append(hof.items[0])
     df_log = pd.DataFrame(logbook)
-    df_log.to_csv('../CSVs\{}.csv'.format(fileNames[x]))
+    df_log.to_csv('./archive/CSV_Bryan/{}.csv'.format(fileNames[x]))
     x += 1
+    print(hof.items[0].fitness, hof.items[0])
     tensorflow.keras.backend.clear_session()
-    time.sleep(20)
+    #time.sleep(20)
