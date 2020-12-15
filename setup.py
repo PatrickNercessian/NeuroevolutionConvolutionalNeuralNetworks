@@ -245,21 +245,8 @@ def run(optimizer, model_struct):
     stats.register("min", numpy.min)
     stats.register("max", numpy.max)
 
-    # pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
-    #                                          cxpb=0.5, mutpb=0.5, ngen=15, stats=stats, verbose=True)
     pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
-<<<<<<< Updated upstream
-                                             cxpb=0.5, mutpb=0.5, ngen=15, stats=stats, verbose=True)
-
-    #pop, logbook = algorithms.eaMuCommaLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
-                                             #cxpb=0.5, mutpb=0.5, ngen=15, stats=stats, verbose = False)
-
-    #pop, logbook = algorithms.eaSimple(population, toolbox, cxpb = .75, mutpb = .25, stats=stats, verbose=False)
-
-
-=======
                                              cxpb=0.5, mutpb=0.5, ngen=15, stats=stats, halloffame=hof, verbose=True)
->>>>>>> Stashed changes
     logbook.header = "gen", "avg", "max"
     print(hof.items[0].fitness, hof.items[0])
     return pop, logbook

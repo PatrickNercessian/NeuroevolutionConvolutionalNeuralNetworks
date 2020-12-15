@@ -196,4 +196,4 @@ def keep_in_bounds(val, lower, upper):
     return new_val
 
 
-test_mutate_architecture()
+# test_mutate_architecture()
