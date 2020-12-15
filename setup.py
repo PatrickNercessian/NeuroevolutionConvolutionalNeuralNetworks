@@ -1,8 +1,6 @@
 import random
 import numpy
-import tensorflow
 import pandas as pd
-from tensorflow.keras import Sequential
 from deap import base, algorithms
 from deap import creator
 from deap import tools
@@ -16,6 +14,19 @@ from PIL import Image, ImageOps
 from numpy import asarray
 import numpy as np
 import os
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import tensorflow
+from tensorflow.keras import Sequential
+
+# tensorflow.get_logger().setLevel('CRITICAL')
+# tensorflow.compat.v1.logging.set_verbosity(tensorflow.compat.v1.logging.ERROR)
+
+tf_config = tensorflow.compat.v1.ConfigProto(
+    gpu_options=tensorflow.compat.v1.GPUOptions(per_process_gpu_memory_fraction=0.12))
+tf_config.gpu_options.allow_growth = True
+session = tensorflow.compat.v1.Session(config=tf_config)
+tensorflow.compat.v1.keras.backend.set_session(session)
 
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
 creator.create("Individual", dict, fitness=creator.FitnessMax, strategy=None)
@@ -45,17 +56,17 @@ sgd_param_bounds = {
 
 def split(images, labels):
     from sklearn.model_selection import train_test_split
-    x_train, x_test, y_train, y_test = train_test_split(images, labels, test_size=0.2, random_state=3)
-    print(len(y_test))
-    return np.array(x_train), np.array(x_test), np.array(y_train), np.array(y_test)
+    x_train, x_test, y_train, y_test = train_test_split(images, labels, test_size=0.4, random_state=3)
+    return np.array(x_train).reshape(-1, 224, 224, 1), np.array(x_test).reshape(-1, 224, 224, 1), np.array(
+        y_train), np.array(y_test)
 
 
 def convert_images():
     directory = 'archive/brain_tumor_dataset/no/'
     list_nparrays = []
     list_labels = []
-    #list_labelsnoTumor = []
-    #this could help accuracy but we must also change the output shape in architecture to this manner
+    # list_labelsnoTumor = []
+    # this could help accuracy but we must also change the output shape in architecture to this manner
     for i, filename in enumerate(os.listdir(directory)):
         if filename.endswith(".jpg") or filename.endswith(".jpeg"):
             image = Image.open(directory + filename)
@@ -137,7 +148,6 @@ def generate_indiv(indiv_class, strat_class, optimizer, model_struct):
 
 
 def fitness(indiv):
-    model = Sequential(indiv['architecture'])
     optimizer_dict = indiv['optimizer']
     # if possible get computation time and add penalty
     if optimizer_dict['optimizer_type'] == 'adam':
@@ -158,14 +168,27 @@ def fitness(indiv):
                                                                              staircase=optimizer_dict['staircase'])
         opt = tensorflow.keras.optimizers.SGD(learning_rate=lr_schedule, momentum=optimizer_dict['momentum'],
                                               nesterov=optimizer_dict['nesterov'])
-    model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
 
-    x_train = data_split[0].reshape(-1, 224, 224, 1)
-    x_test = data_split[1].reshape(-1, 224, 224, 1)
-    model.fit(x_train, data_split[2], batch_size=20, epochs=15)
-    fit = model.evaluate(x_test, data_split[3])[1]
+    try:
+        model = Sequential.from_config(indiv['architecture'])
+        print(model.layers)
+        model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+
+        model.fit(data_split[0], data_split[2], batch_size=32, epochs=20, verbose=False)
+        fit = model.evaluate(data_split[1], data_split[3])[1]
+    except tensorflow.errors.ResourceExhaustedError:
+        print("Went OOM")
+        print(indiv['architecture'])
+        fit = 0
     print(fit)
+
+    try:
+        del model
+    except UnboundLocalError:
+        pass
     tensorflow.keras.backend.clear_session()
+    tensorflow.compat.v1.reset_default_graph()
+
     return (fit,)
 
 
@@ -173,24 +196,24 @@ img_data, img_labels = convert_images()
 data_split = split(img_data, img_labels)
 
 
-def clone_override(indiv):
-    from copy import deepcopy
-
-    print(indiv.fitness)
-
-    copied_indiv = creator.Individual()
-    copied_indiv['optimizer'] = deepcopy(indiv['optimizer'])
-    copied_indiv['optimizer_strat'] = deepcopy(indiv['optimizer_strat'])
-    copied_indiv['architecture'] = Sequential.from_config(indiv['architecture'].get_config())  # Can't deepcopy model
-    copied_indiv.fitness.values = indiv.fitness.values
-
-    return copied_indiv
+# NEED TO OVERRIDE toolbox.clone().
+# https://stackoverflow.com/questions/54366935/make-a-deep-copy-of-a-keras-model-in-python
+# def clone_override(indiv):
+#     from copy import deepcopy
+#
+#     print(indiv.fitness)
+#
+#     copied_indiv = creator.Individual()
+#     copied_indiv['optimizer'] = deepcopy(indiv['optimizer'])
+#     copied_indiv['optimizer_strat'] = deepcopy(indiv['optimizer_strat'])
+#     copied_indiv['architecture'] = Sequential.from_config(indiv['architecture'].get_config())  # Can't deepcopy model
+#     copied_indiv.fitness.values = indiv.fitness.values
+#
+#     return copied_indiv
 
 
 def setup_toolbox(optimizer, model_struct):
-    # NEED TO OVERRIDE toolbox.clone().
-    # https://stackoverflow.com/questions/54366935/make-a-deep-copy-of-a-keras-model-in-python
-    toolbox.register("clone", clone_override)
+    # toolbox.register("clone", clone_override)
 
     toolbox.register("individual", generate_indiv, creator.Individual, creator.Strategy, optimizer, model_struct)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -222,7 +245,10 @@ def run(optimizer, model_struct):
     stats.register("min", numpy.min)
     stats.register("max", numpy.max)
 
+    # pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
+    #                                          cxpb=0.5, mutpb=0.5, ngen=15, stats=stats, verbose=True)
     pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
+<<<<<<< Updated upstream
                                              cxpb=0.5, mutpb=0.5, ngen=15, stats=stats, verbose=True)
 
     #pop, logbook = algorithms.eaMuCommaLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
@@ -231,12 +257,15 @@ def run(optimizer, model_struct):
     #pop, logbook = algorithms.eaSimple(population, toolbox, cxpb = .75, mutpb = .25, stats=stats, verbose=False)
 
 
+=======
+                                             cxpb=0.5, mutpb=0.5, ngen=15, stats=stats, halloffame=hof, verbose=True)
+>>>>>>> Stashed changes
     logbook.header = "gen", "avg", "max"
-    # pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
-    #                                          cxpb=0.5, mutpb=0.5, ngen=14, stats=stats, halloffame=hof, verbose=False)
-    # print(hof.items[0].fitness, hof.items[0])
+    print(hof.items[0].fitness, hof.items[0])
     return pop, logbook
 
+
+# run("adam", "Random")
 
 runs = 50
 x = 0
@@ -247,14 +276,14 @@ while x < 50:
 
 x = 0
 while x < runs:
-    pop, logbook= run("adam", "LeNet")
+    pop, logbook = run("adam", "LeNet")
     gen = logbook.select("gen")
     fit_max = logbook.select("max")
-    plt.plot(gen, fit_max, label = 'Best Fitness in each Generation')
+    plt.plot(gen, fit_max, label='Best Fitness in each Generation')
     plt.xlabel('Generation')
     plt.ylabel('Fitness')
     df_log = pd.DataFrame(logbook)
-    df_log.to_csv('C:/Users/bryan/Desktop/CSVs\{}.csv'.format(fileNames[x]))
+    df_log.to_csv('../CSVs\{}.csv'.format(fileNames[x]))
     x += 1
     tensorflow.keras.backend.clear_session()
     time.sleep(20)

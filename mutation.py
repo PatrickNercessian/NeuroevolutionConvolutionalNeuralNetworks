@@ -2,6 +2,9 @@ import random
 import math
 import architecture
 
+import os
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Conv2D, Flatten, MaxPooling2D, AveragePooling2D
 
@@ -33,20 +36,21 @@ def gaussian_mutate_optimizer(indiv, indpb, param_bounds):
                                                      param_bounds[key][1]
                                                      )
     indiv['optimizer'] = optimizer_dict
-    indiv['optimizer_strat_dict'] = optimizer_strat_dict
+    indiv['optimizer_strat'] = optimizer_strat_dict
     return indiv,
 
 
 # TODO Decide on probabilities of each mutation
 def mutate_architecture(indiv):
-    model: Sequential = indiv['architecture']
+    model = Sequential.from_config(indiv['architecture'])
+    print(model.summary())
     rand_val = random.random()
 
     # TODO double check that this works
     flatten_index = next(index for index, layer in enumerate(model.layers) if isinstance(layer, Flatten))
 
-    if rand_val < 0.025:  # insert a random layer (2.5% chance)
-        insert_new_layer(model, flatten_index)
+    if rand_val < 1:  # insert a random layer (2.5% chance)
+        model = insert_new_layer(model, flatten_index)
     elif rand_val < 0.05:  # insert a copied existing layer (2.5% chance)
         insert_new_layer(model, flatten_index, is_copy=True)
     elif rand_val < 0.1:  # remove a random layer (5% chance)
@@ -54,7 +58,7 @@ def mutate_architecture(indiv):
     elif rand_val < 0.125:  # move an existing layer (2.5% chance)
         insert_new_layer(model, flatten_index, is_copy=True, remove_original=True)
     # TODO decide if there should be an 'else:' here, so layer parameters are only tweaked if none of the above happened
-    for i, layer in enumerate(model.layers[-1]):  # Last layer (dense with 2 nodes) should never be mutated
+    for i, layer in enumerate(model.layers[:-1]):  # Last layer (dense with 2 nodes) should never be mutated
         if i < flatten_index:
             if isinstance(layer, Conv2D):
                 mutate_conv(layer)
@@ -65,14 +69,34 @@ def mutate_architecture(indiv):
                 mutate_dense(layer)
             elif isinstance(layer, Dropout):
                 mutate_dropout(layer)
+    print(model.summary())
+    indiv['architecture'] = model.get_config()
+
+
+def test_mutate_architecture():
+    model = Sequential([
+        Conv2D(filters=6, kernel_size=(3, 3), activation='relu', input_shape=(224, 224, 1)),  # input shape 1 or 3?
+        AveragePooling2D(),
+        Conv2D(filters=16, kernel_size=(3, 3), activation='relu'),
+        AveragePooling2D(),
+        Flatten(),
+        Dense(units=60, activation='relu'),  # TODO change Units because we only have 2 classes to predict
+        Dense(units=42, activation='relu'),  # TODO change Units because we only have 2 classes to predict
+        Dense(units=1, activation='sigmoid')  # TODO change Units because we only have 2 classes to predict
+    ])
+    indiv = {'architecture': model.get_config()}
+    print(indiv['architecture'])
+    mutate_architecture(indiv)
+    print(indiv['architecture'])
 
 
 # !is_copy inserts random new layer randomly
 # (is_copy, !remove_original) just creates a copy of random existing layer and inserts randomly
 # (is_copy, remove_original) removes the original so that it effectively just moves the original somewhere else
 def insert_new_layer(model: Sequential, flatten_index: int, is_copy=False, remove_original=False):
-    insert_index = random.randint(1, len(model.layers) - 1)
-
+    # insert_index = random.randint(1, len(model.layers) - 1)
+    insert_index = 6
+    layers = [layer for layer in model.layers]
     if insert_index <= flatten_index:
         input_size = min(
             model.layers[insert_index - 1].output_shape[1],
@@ -80,24 +104,29 @@ def insert_new_layer(model: Sequential, flatten_index: int, is_copy=False, remov
         )
         if is_copy:
             orig_index = random.randint(1, flatten_index)
-            model.layers.insert(insert_index, model.layers.index(orig_index))  # TODO maybe not this simple bc input
+            layers.insert(insert_index, layers.index(orig_index))  # TODO maybe not this simple bc input
             if remove_original:
-                model.layers.pop(orig_index)
+                layers.pop(orig_index)
         else:  # insert random new layer
-            model.layers.insert(insert_index, random.choice([architecture.random_pool(input_size, "average"),
-                                                             architecture.random_pool(input_size, "max"),
-                                                             architecture.random_conv(input_size, False)
-                                                             ]))
+            layers.insert(insert_index, random.choice([architecture.random_pool(input_size, "average"),
+                                                       architecture.random_pool(input_size, "max"),
+                                                       architecture.random_conv(input_size, False)
+                                                       ]))
     else:
         if is_copy:
             orig_index = random.randint(flatten_index + 1, len(model.layers))
-            model.layers.insert(insert_index, model.layers.index(orig_index))
+            layers.insert(insert_index, layers.index(orig_index))
             if remove_original:
-                model.layers.pop(orig_index)
+                layers.pop(orig_index)
         else:  # insert random new layer
-            model.layers.insert(insert_index, random.choice([architecture.random_dense(False),
-                                                             architecture.random_dropout()
-                                                             ]))
+            layers.insert(insert_index, random.choice([architecture.random_dense(False),
+                                                       architecture.random_dropout()
+                                                       ]))
+            # layers[insert_index].input_shape = layers[insert_index - 1].output_shape
+    # print(layers[insert_index].input_shape)
+    # print('binks')
+    # print(len(layers))
+    return Sequential(layers=layers)
 
 
 def remove_random_layer(model: Sequential, flatten_index: int):
@@ -165,3 +194,6 @@ def keep_in_bounds(val, lower, upper):
     elif val > upper:
         new_val = upper
     return new_val
+
+
+test_mutate_architecture()
