@@ -1,11 +1,10 @@
 import random
 import os
+import numpy as np
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow
 tensorflow.get_logger().setLevel('CRITICAL')
-# tensorflow.compat.v1.logging.set_verbosity(tensorflow.compat.v1.logging.ERROR)
-
 
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, AveragePooling2D
@@ -59,7 +58,7 @@ def build_fn(model_struct):
                         model.layers[-1].output_shape[2]
                     )
 
-                    if input_size < 2 or len(model.layers) > 6:
+                    if input_size < 3 or len(model.layers) > 6:
                         model.add(Flatten())
                         continue
 
@@ -75,21 +74,43 @@ def build_fn(model_struct):
                     if rand_val < 0.35:
                         model.add(random_dropout())
                     elif rand_val < 0.7:
-                        model.add(random_dense(False))
+                        model.add(random_dense(is_last=False))
                     else:
+                        trainable_count = np.sum(
+                            [tensorflow.keras.backend.count_params(w) for w in model.trainable_weights])
+                        print("final trainable_count", trainable_count)
                         break
             except tensorflow.errors.ResourceExhaustedError:
                 print("Initial Architecture went OOM, retrying...")
+                del model
+                tensorflow.keras.backend.clear_session()
+                tensorflow.compat.v1.reset_default_graph()
+                return build_fn(model_struct)
 
-        model.add(random_dense(True))
-        return model.get_config()
+        model.add(random_dense(is_last=True))
+        model_config = model.get_config()
+
+        trainable_count = np.sum(
+            [tensorflow.keras.backend.count_params(w) for w in model.trainable_weights])
+
+        del model
+        tensorflow.keras.backend.clear_session()
+        tensorflow.compat.v1.reset_default_graph()
+
+        if trainable_count > 10000000:  # Remove last dense if greater than 10,000,000 params
+            print("Trainable Count was over 10,000,000:", trainable_count, ". Replacing with new model...")
+            return build_fn(model_struct)
+
+        return model_config
 
     print("model was not LeNet, AlexNet, or Random")
 
 
 def random_conv(input_size, is_first):
-    filters = random.randint(1, 500)
+    filters = random.randint(1, 100)
     kernel_rowcol_size = random.randint(2, input_size)
+    if kernel_rowcol_size > 25:
+        kernel_rowcol_size = random.randint(2, 25)
     kernel_size = (kernel_rowcol_size, kernel_rowcol_size)
 
     stride_size = random.randint(1, kernel_rowcol_size)
@@ -123,7 +144,7 @@ def random_dropout():
 
 
 def random_dense(is_last):
-    units = 1 if is_last else random.randint(2, 500)
+    units = 1 if is_last else random.randint(2, 100)
     activation = 'sigmoid' if is_last else 'relu'
 
     return Dense(units=units, activation=activation)

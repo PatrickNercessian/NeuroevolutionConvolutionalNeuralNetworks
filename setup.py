@@ -19,9 +19,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow
 from tensorflow.keras import Sequential
 
-# tensorflow.get_logger().setLevel('CRITICAL')
-# tensorflow.compat.v1.logging.set_verbosity(tensorflow.compat.v1.logging.ERROR)
-
 tf_config = tensorflow.compat.v1.ConfigProto(
     gpu_options=tensorflow.compat.v1.GPUOptions(per_process_gpu_memory_fraction=0.12))
 tf_config.gpu_options.allow_growth = True
@@ -65,8 +62,7 @@ def convert_images():
     directory = 'archive/brain_tumor_dataset/no/'
     list_nparrays = []
     list_labels = []
-    # list_labelsnoTumor = []
-    # this could help accuracy but we must also change the output shape in architecture to this manner
+
     for i, filename in enumerate(os.listdir(directory)):
         if filename.endswith(".jpg") or filename.endswith(".jpeg"):
             image = Image.open(directory + filename)
@@ -74,7 +70,6 @@ def convert_images():
             data = asarray(image_resized_grayscale)
             list_nparrays.append(data)
             list_labels.append(0)
-            # list_labelsnoTumor.append(1)
 
     directory = 'archive/brain_tumor_dataset/yes/'
     for i, filename in enumerate(os.listdir(directory)):
@@ -84,7 +79,6 @@ def convert_images():
             data = asarray(image_resized_grayscale)
             list_nparrays.append(data)
             list_labels.append(1)
-            # list_labelsnoTumor.append(0)
 
     return list_nparrays, list_labels
 
@@ -134,12 +128,15 @@ def build_param(optimizer, is_strats):
             param_dict.update({'staircase': random.uniform(sgd_param_bounds['staircase'][index],
                                                            sgd_param_bounds['staircase'][index + 1])
                                })
+
         return param_dict
     print("optType was not Adam or SGD")
 
 
 def generate_indiv(indiv_class, strat_class, optimizer, model_struct):
     indiv = indiv_class()
+
+    indiv['model_struct'] = model_struct
     indiv['optimizer'] = indiv_class(build_param(optimizer, False))
     indiv['optimizer_strat'] = strat_class(build_param(optimizer, True))
     indiv['architecture'] = architecture.build_fn(model_struct)
@@ -151,41 +148,34 @@ def fitness(indiv):
     optimizer_dict = indiv['optimizer']
     # if possible get computation time and add penalty
     if optimizer_dict['optimizer_type'] == 'adam':
-        # lr_schedule = tensorflow.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=optimizer_dict['lr'],
-        #                                                                      decay_steps=optimizer_dict['decay_steps'],
-        #                                                                      decay_rate=optimizer_dict['decay'],
-        #                                                                      staircase=optimizer_dict['staircase'])
-        # opt = tensorflow.keras.optimizers.Adam(learning_rate=lr_schedule, beta_1=optimizer_dict['b1'],
-        #                                        beta_2=optimizer_dict['b2'],
-        #                                        epsilon=optimizer_dict['epsilon'])
         opt = tensorflow.keras.optimizers.Adam(learning_rate=optimizer_dict['lr'], beta_1=optimizer_dict['b1'],
                                                beta_2=optimizer_dict['b2'],
                                                epsilon=optimizer_dict['epsilon'])
     elif optimizer_dict['optimizer_type'] == 'sga':
-        lr_schedule = tensorflow.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate=optimizer_dict['lr'],
-                                                                             decay_steps=optimizer_dict['decay_steps'],
-                                                                             decay_rate=optimizer_dict['decay'],
-                                                                             staircase=optimizer_dict['staircase'])
-        opt = tensorflow.keras.optimizers.SGD(learning_rate=lr_schedule, momentum=optimizer_dict['momentum'],
+        opt = tensorflow.keras.optimizers.SGD(learning_rate=optimizer_dict['lr'], momentum=optimizer_dict['momentum'],
                                               nesterov=optimizer_dict['nesterov'])
 
     try:
         model = Sequential.from_config(indiv['architecture'])
-        print(model.layers)
-        model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+        num_trainable_params = np.sum([tensorflow.keras.backend.count_params(w) for w in model.trainable_weights])
+        if num_trainable_params > 10000000:
+            fit = 0
+        else:
+            model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+            model.fit(data_split[0], data_split[2], batch_size=32, epochs=20, verbose=False)
 
-        model.fit(data_split[0], data_split[2], batch_size=32, epochs=20, verbose=False)
-        fit = model.evaluate(data_split[1], data_split[3])[1]
+            fit = model.evaluate(data_split[1], data_split[3])[1]
     except tensorflow.errors.ResourceExhaustedError:
-        print("Went OOM")
-        print(indiv['architecture'])
+        print("Went OOM with architecture", indiv['architecture'])
         fit = 0
-    print(fit)
+    except Exception as e:
+        print(e)
+        fit = 0
 
     try:
         del model
-    except UnboundLocalError:
-        pass
+    except UnboundLocalError as e:
+        print(e)
     tensorflow.keras.backend.clear_session()
     tensorflow.compat.v1.reset_default_graph()
 
@@ -196,33 +186,15 @@ img_data, img_labels = convert_images()
 data_split = split(img_data, img_labels)
 
 
-# NEED TO OVERRIDE toolbox.clone().
-# https://stackoverflow.com/questions/54366935/make-a-deep-copy-of-a-keras-model-in-python
-# def clone_override(indiv):
-#     from copy import deepcopy
-#
-#     print(indiv.fitness)
-#
-#     copied_indiv = creator.Individual()
-#     copied_indiv['optimizer'] = deepcopy(indiv['optimizer'])
-#     copied_indiv['optimizer_strat'] = deepcopy(indiv['optimizer_strat'])
-#     copied_indiv['architecture'] = Sequential.from_config(indiv['architecture'].get_config())  # Can't deepcopy model
-#     copied_indiv.fitness.values = indiv.fitness.values
-#
-#     return copied_indiv
-
-
 def setup_toolbox(optimizer, model_struct):
-    # toolbox.register("clone", clone_override)
-
     toolbox.register("individual", generate_indiv, creator.Individual, creator.Strategy, optimizer, model_struct)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
     toolbox.register("mate", recombination.optimizer_crossover)
     if optimizer == 'adam':
-        toolbox.register("mutate", mutation.gaussian_mutate_optimizer, indpb=1.0, param_bounds=adam_param_bounds)
+        toolbox.register("mutate", mutation.mutate, indpb=1.0, param_bounds=adam_param_bounds)
     else:
-        toolbox.register("mutate", mutation.gaussian_mutate_optimizer, indpb=1.0, param_bounds=sgd_param_bounds)
+        toolbox.register("mutate", mutation.mutate, indpb=1.0, param_bounds=sgd_param_bounds)
 
     toolbox.register("select", tools.selBest)
     toolbox.register("evaluate", fitness)
@@ -236,6 +208,7 @@ def run(optimizer, model_struct):
 
     for indiv in population:
         print(indiv['optimizer'])
+        print(indiv['architecture'])
 
     hof = tools.HallOfFame(1)
     stats = tools.Statistics(key=lambda ind: ind.fitness.values)
@@ -248,29 +221,42 @@ def run(optimizer, model_struct):
     pop, logbook = algorithms.eaMuPlusLambda(population, toolbox, mu=MU, lambda_=LAMBDA,
                                              cxpb=0.5, mutpb=0.5, ngen=15, stats=stats, halloffame=hof, verbose=True)
     logbook.header = "gen", "avg", "max"
-    print(hof.items[0].fitness, hof.items[0])
-    return pop, logbook
+    print("Best Individual had fitness of", hof.items[0].fitness)
+    print("with optimizer", hof.items[0]['optimizer'])
+    print("with optimizer strategy varibles", hof.items[0]['optimizer_strat'])
+
+    if model_struct == "Random":
+        print("with architecture:")
+        for layer_dict in hof.items[0]['architecture']['layers']:
+            print(layer_dict)
+
+    return pop, logbook, hof
 
 
-# run("adam", "Random")
+# run("adam", "LeNet")
 
 runs = 50
 x = 0
-fileNames = []
+file_names = []
 while x < 50:
-    fileNames.append(x)
+    file_names.append(x)
     x += 1
 
 x = 0
+
+hall_of_fame = []
+
 while x < runs:
-    pop, logbook = run("adam", "LeNet")
+    pop, logbook, hof = run("adam", "LeNet")
     gen = logbook.select("gen")
     fit_max = logbook.select("max")
-    plt.plot(gen, fit_max, label='Best Fitness in each Generation')
-    plt.xlabel('Generation')
-    plt.ylabel('Fitness')
+    # plt.plot(gen, fit_max, label='Best Fitness in each Generation')
+    # plt.xlabel('Generation')
+    # plt.ylabel('Fitness')
+    hall_of_fame.append(hof.items[0])
     df_log = pd.DataFrame(logbook)
-    df_log.to_csv('../CSVs\{}.csv'.format(fileNames[x]))
+    df_log.to_csv('./CSVs/{}.csv'.format(file_names[x]))
     x += 1
-    tensorflow.keras.backend.clear_session()
-    time.sleep(20)
+
+df_log = pd.DataFrame(hall_of_fame)
+df_log.to_csv('./CSVs/Results/HoF.csv')
